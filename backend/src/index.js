@@ -523,6 +523,45 @@ app.get('/api/quizzes/word-problems', async (req, res) => {
     );
 
     const processed = list.map(item => {
+      // Handle fraction word problem answers (e.g. "3/4")
+      if (item.answer.includes('/')) {
+        const parts = item.answer.split('/');
+        if (parts.length === 2) {
+          const N = parseInt(parts[0]);
+          const D = parseInt(parts[1]);
+          if (!isNaN(N) && !isNaN(D) && D > 0) {
+            const choices = [
+              `${N}/${D}`,
+              `${N + 1}/${D}`,
+              `${Math.max(1, N - 1)}/${D}`,
+              `${N + 2}/${D}`
+            ];
+            // Ensure uniqueness
+            const uniqueChoices = Array.from(new Set(choices));
+            while (uniqueChoices.length < 4) {
+              uniqueChoices.push(`${N + uniqueChoices.length}/${D}`);
+            }
+            // Shuffle choices
+            for (let i = uniqueChoices.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1));
+              const temp = uniqueChoices[i];
+              uniqueChoices[i] = uniqueChoices[j];
+              uniqueChoices[j] = temp;
+            }
+            const letters = ['A', 'B', 'C', 'D'];
+            const correctIdx = uniqueChoices.indexOf(item.answer);
+            return {
+              ...item,
+              option_a: uniqueChoices[0],
+              option_b: uniqueChoices[1],
+              option_c: uniqueChoices[2],
+              option_d: uniqueChoices[3],
+              correct_option: letters[correctIdx]
+            };
+          }
+        }
+      }
+
       const correctVal = parseInt(item.answer);
       if (isNaN(correctVal)) {
         return {

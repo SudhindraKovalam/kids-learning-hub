@@ -8,7 +8,7 @@ interface MathWorkbookProps {
   resume: boolean;
   subject: 'math' | 'math_word';
   assignmentId?: number;
-  config?: { count?: number; type?: string; format?: 'choices' | 'work_area' };
+  config?: { count?: number; type?: string; format?: 'choices' | 'work_area' | 'mix' };
   onBack: () => void;
 }
 
@@ -22,6 +22,7 @@ interface WordProblemState {
   option_c: string;
   option_d: string;
   correct_option: string;
+  format?: 'choices' | 'work_area';
   userAnswer?: string;
   isCorrect?: boolean;
   locked?: boolean;
@@ -108,12 +109,18 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
 
       if (subject === 'math_word') {
         const generated = await api.getMathWordProblems(countVal);
-        const initialized = generated.map(wp => ({
-          ...wp,
-          userAnswer: '',
-          isCorrect: undefined,
-          locked: false
-        }));
+        const initialized = generated.map(wp => {
+          const questionFormat = config?.format === 'mix'
+            ? (Math.random() < 0.5 ? 'choices' : 'work_area')
+            : config?.format || 'work_area';
+          return {
+            ...wp,
+            format: questionFormat,
+            userAnswer: '',
+            isCorrect: undefined,
+            locked: false
+          };
+        });
         setWordProblems(initialized);
         setStartTime(Date.now());
         setIsConfiguring(false);
@@ -158,10 +165,13 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
 
   const handleInputChange = (id: number, field: 'userAnswer' | 'userRemainder', value: string) => {
     if (subject === 'math_word') {
-      const numericValue = value.replace(/[^0-9\-]/g, '');
+      const targetWp = wordProblems.find(p => p.id === id);
+      const isFractionAnswer = targetWp?.answer.includes('/');
+      const filterRegex = isFractionAnswer ? /[^0-9\/]/g : /[^0-9\-]/g;
+      const filteredValue = value.replace(filterRegex, '');
       setWordProblems(prev => prev.map(p => {
         if (p.id === id) {
-          return { ...p, userAnswer: numericValue };
+          return { ...p, userAnswer: filteredValue };
         }
         return p;
       }));
@@ -239,7 +249,8 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
     let stateObj: any;
 
     if (subject === 'math_word') {
-      if (isChoices) return; // multiple choice is verified onClick, not onBlur
+      const targetWp = wordProblems.find(p => p.id === id);
+      if (targetWp?.format === 'choices') return;
       
       let updatedWps: WordProblemState[] = [];
       setWordProblems(prev => {
@@ -248,7 +259,14 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
             if (p.userAnswer === undefined || p.userAnswer === '') {
               return { ...p, isCorrect: undefined };
             }
-            const correct = p.userAnswer.trim() === p.answer.trim();
+            let correct = false;
+            if (p.answer.includes('/')) {
+              const parts = p.answer.split('/');
+              const correctVal = parseInt(parts[0]) / parseInt(parts[1]);
+              correct = validateFraction(p.userAnswer, correctVal);
+            } else {
+              correct = p.userAnswer.trim() === p.answer.trim();
+            }
             const isLocked = assignmentId ? true : false;
             return { ...p, isCorrect: correct, locked: isLocked };
           }
@@ -352,9 +370,18 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
         if (p.userAnswer === undefined || p.userAnswer === '') {
           return { ...p, isCorrect: false, locked: true };
         }
-        const correct = isChoices
-          ? p.userAnswer === p.correct_option
-          : p.userAnswer.trim() === p.answer.trim();
+        let correct = false;
+        if (p.format === 'choices') {
+          correct = p.userAnswer === p.correct_option;
+        } else {
+          if (p.answer.includes('/')) {
+            const parts = p.answer.split('/');
+            const correctVal = parseInt(parts[0]) / parseInt(parts[1]);
+            correct = validateFraction(p.userAnswer, correctVal);
+          } else {
+            correct = p.userAnswer.trim() === p.answer.trim();
+          }
+        }
         return { ...p, isCorrect: correct, locked: true };
       });
       finalScore = validated.filter(p => p.isCorrect).length;
@@ -598,7 +625,7 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
           {subject === 'math_word' ? '📝 Math Word Problems Quest' : '🧮 Math Practice Worksheet'}
         </h1>
         <p style={{ textAlign: 'center', color: '#475569', fontSize: '0.95rem' }}>
-          {subject === 'math' ? `Workbook Type: ${mathType.toUpperCase()} • Problems Count: ${problems.length}` : `Problems Count: ${wordProblems.length} • Format: ${isChoices ? 'Multiple Choice' : 'Lined Workspace'}`}
+          {subject === 'math' ? `Workbook Type: ${mathType.toUpperCase()} • Problems Count: ${problems.length}` : `Problems Count: ${wordProblems.length} • Mixed Layout Formats`}
         </p>
       </div>
 
@@ -646,7 +673,7 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
               </h4>
 
               {/* Lined Workspace Workspace */}
-              {!isChoices && (
+              {wp.format !== 'choices' && (
                 <>
                   {/* Digital view text input */}
                   <div className="math-inputs screen-only">
@@ -657,7 +684,7 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
                       onChange={(e) => handleInputChange(wp.id, 'userAnswer', e.target.value)}
                       onBlur={(e) => handleInputBlur(wp.id, e)}
                       disabled={wp.locked}
-                      maxLength={6}
+                      maxLength={8}
                       placeholder="?"
                       autoComplete="off"
                       style={{ width: '120px', textAlign: 'left', padding: '0 1rem' }}
@@ -685,7 +712,7 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
               )}
 
               {/* Multiple Choice Options */}
-              {isChoices && (
+              {wp.format === 'choices' && (
                 <div>
                   <div className="quiz-options-list" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', width: '100%', marginTop: '0.5rem' }}>
                     {['A', 'B', 'C', 'D'].map((letter) => {
