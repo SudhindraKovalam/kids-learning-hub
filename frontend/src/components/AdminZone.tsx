@@ -17,7 +17,7 @@ export const AdminZone: React.FC<AdminZoneProps> = ({ onExit }) => {
   // Form states
   const [assignSubject, setAssignSubject] = useState<'math' | 'math_word' | 'science' | 'literacy'>('math');
   const [mathOperation, setMathOperation] = useState<string>('mix');
-  const [mathCount, setMathCount] = useState<number>(10);
+  const [mathCount, setMathCount] = useState<number>(30);
   const [loading, setLoading] = useState<boolean>(true);
   const [assigning, setAssigning] = useState<boolean>(false);
 
@@ -213,13 +213,13 @@ export const AdminZone: React.FC<AdminZoneProps> = ({ onExit }) => {
                     <div className="form-group">
                       <label className="form-label">Number of Problems</label>
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        {[5, 10, 15, 20].map(count => (
+                        {[10, 20, 30, 45, 60].map(count => (
                           <button
                             key={count}
                             type="button"
                             className={`btn btn-sm ${mathCount === count ? 'btn-primary' : 'btn-light'}`}
                             onClick={() => setMathCount(count)}
-                            style={{ flex: 1, fontFamily: 'var(--font-title)', fontSize: '1rem' }}
+                            style={{ flex: 1, fontFamily: 'var(--font-title)', fontSize: '0.95rem' }}
                           >
                             {count}
                           </button>

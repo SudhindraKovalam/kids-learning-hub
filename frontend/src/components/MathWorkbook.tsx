@@ -32,7 +32,7 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
 }) => {
   const [problems, setProblems] = useState<MathProblem[]>([]);
   const [wordProblems, setWordProblems] = useState<WordProblemState[]>([]);
-  const [problemCount, setProblemCount] = useState<number>(config?.count || 10);
+  const [problemCount, setProblemCount] = useState<number>(config?.count || 30);
   const [mathType, setMathType] = useState<string>(config?.type || 'mix');
   const [isConfiguring, setIsConfiguring] = useState<boolean>(!resume && !assignmentId);
   const [startTime, setStartTime] = useState<number>(Date.now());
@@ -61,7 +61,7 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
               setIsConfiguring(false);
             } else {
               setIsConfiguring(false);
-              await handleStartNewWorkbook(config?.count || 10, config?.type || 'mix');
+              await handleStartNewWorkbook(config?.count || 30, config?.type || 'mix');
             }
           } else {
             // Load free play state
@@ -81,7 +81,7 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
         } else if (assignmentId) {
           // New assignment worksheet - generate immediately without config screen
           setIsConfiguring(false);
-          await handleStartNewWorkbook(config?.count || 10, config?.type || 'mix');
+          await handleStartNewWorkbook(config?.count || 30, config?.type || 'mix');
         }
       } catch (err) {
         console.error('Error loading math session:', err);
@@ -114,7 +114,7 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
         stateObj = {
           subject,
           startTime: Date.now(),
-          mathProblems: initialized // saved in same field name for DB simplicity
+          mathProblems: initialized
         };
       } else {
         const generated = await api.getMathQuestions(countVal, typeVal);
@@ -151,7 +151,6 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
 
   const handleInputChange = (id: number, field: 'userAnswer' | 'userRemainder', value: string) => {
     if (subject === 'math_word') {
-      // Filter for word problems: numeric only
       const numericValue = value.replace(/[^0-9\-]/g, '');
       setWordProblems(prev => prev.map(p => {
         if (p.id === id) {
@@ -160,7 +159,6 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
         return p;
       }));
     } else {
-      // For fractions: allow digits and slash
       const filterRegex = mathType === 'fractions' || problems.find(p => p.id === id)?.type === 'fractions'
         ? /[^0-9\/]/g
         : /[^0-9\-]/g;
@@ -175,7 +173,6 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
     }
   };
 
-  // Perform validation on fraction answers
   const validateFraction = (userInput: string, decimalAnswer: number): boolean => {
     if (!userInput.trim()) return false;
     const parts = userInput.split('/');
@@ -194,11 +191,9 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
 
   // Perform blur validation & save state
   const handleInputBlur = async (id: number, e?: React.FocusEvent<HTMLInputElement>) => {
-    // For division problems, check if focus moved to the other field in the same card
     if (e && e.currentTarget && e.relatedTarget) {
       const cardElement = e.currentTarget.closest('.math-card');
       if (cardElement && cardElement.contains(e.relatedTarget as Node)) {
-        // Focus is still inside the division card (moving between Quotient and Remainder)
         return;
       }
     }
@@ -214,7 +209,6 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
               return { ...p, isCorrect: undefined };
             }
             const correct = p.userAnswer.trim() === p.answer.trim();
-            // Lock if playing assignment
             const isLocked = assignmentId ? true : false;
             return { ...p, isCorrect: correct, locked: isLocked };
           }
@@ -245,16 +239,22 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
             }
 
             let correct = false;
+            const targetAnswer = p.expectedAnswer !== undefined ? p.expectedAnswer : p.answer;
 
             if (p.type === 'fractions') {
               correct = validateFraction(p.userAnswer, p.decimalAnswer || 0);
             } else if (p.type === 'division' || p.type === '/') {
-              const ans = parseInt(p.userAnswer);
-              const rem = p.userRemainder !== undefined && p.userRemainder !== '' ? parseInt(p.userRemainder) : 0;
-              correct = (ans === p.answer) && (rem === (p.remainder || 0));
+              if (p.format === 'missing_op1' || p.format === 'missing_op2') {
+                const ans = parseInt(p.userAnswer);
+                correct = ans === targetAnswer;
+              } else {
+                const ans = parseInt(p.userAnswer);
+                const rem = p.userRemainder !== undefined && p.userRemainder !== '' ? parseInt(p.userRemainder) : 0;
+                correct = (ans === p.answer) && (rem === (p.remainder || 0));
+              }
             } else {
               const ans = parseInt(p.userAnswer);
-              correct = ans === p.answer;
+              correct = ans === targetAnswer;
             }
 
             const isLocked = assignmentId ? true : false;
@@ -324,15 +324,22 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
           return { ...p, isCorrect: false, locked: true };
         }
         let correct = false;
+        const targetAnswer = p.expectedAnswer !== undefined ? p.expectedAnswer : p.answer;
+
         if (p.type === 'fractions') {
           correct = validateFraction(p.userAnswer, p.decimalAnswer || 0);
         } else if (p.type === 'division' || p.type === '/') {
-          const ans = parseInt(p.userAnswer);
-          const rem = p.userRemainder !== undefined && p.userRemainder !== '' ? parseInt(p.userRemainder) : 0;
-          correct = (ans === p.answer) && (rem === (p.remainder || 0));
+          if (p.format === 'missing_op1' || p.format === 'missing_op2') {
+            const ans = parseInt(p.userAnswer);
+            correct = ans === targetAnswer;
+          } else {
+            const ans = parseInt(p.userAnswer);
+            const rem = p.userRemainder !== undefined && p.userRemainder !== '' ? parseInt(p.userRemainder) : 0;
+            correct = (ans === p.answer) && (rem === (p.remainder || 0));
+          }
         } else {
           const ans = parseInt(p.userAnswer);
-          correct = ans === p.answer;
+          correct = ans === targetAnswer;
         }
         return { ...p, isCorrect: correct, locked: true };
       });
@@ -377,6 +384,17 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
+  const getOpSymbol = (type: string) => {
+    if (type === 'addition') return '+';
+    if (type === 'subtraction') return '−';
+    if (type === 'multiplication') return '×';
+    if (type === 'division') return '÷';
+    if (type === '/') return '÷';
+    if (type === '*') return '×';
+    if (type === '-') return '−';
+    return '+';
+  };
+
   if (isConfiguring) {
     return (
       <div className="workbook-container">
@@ -390,7 +408,7 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
           <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>How many questions do you want in your workbook today?</p>
           
           <div className="config-options">
-            {[5, 10, 15, 20].map(count => (
+            {[10, 20, 30, 45, 60].map(count => (
               <button
                 key={count}
                 className={`config-btn ${problemCount === count ? 'selected' : ''}`}
@@ -485,6 +503,20 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
 
   return (
     <div className="workbook-container">
+      {/* Print-only name/date header */}
+      <div className="print-only" style={{ display: 'none', marginBottom: '2.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid black', paddingBottom: '0.75rem', marginBottom: '1.5rem', fontFamily: 'monospace', fontSize: '1.2rem' }}>
+          <span>Name: ____________________________________</span>
+          <span>Date: ________________________</span>
+        </div>
+        <h1 style={{ textAlign: 'center', fontSize: '2.2rem', color: 'black', marginBottom: '0.5rem', fontFamily: 'var(--font-title)' }}>
+          {subject === 'math_word' ? '📝 Math Word Problems Quest' : '🧮 Math Practice Worksheet'}
+        </h1>
+        <p style={{ textAlign: 'center', color: '#475569', fontSize: '0.95rem' }}>
+          {subject === 'math' ? `Workbook Type: ${mathType.toUpperCase()} • Problems Count: ${problems.length}` : `Problems Count: ${wordProblems.length}`}
+        </p>
+      </div>
+
       <div className="workbook-header">
         <div>
           <h2 style={{ color: 'var(--primary)' }}>
@@ -495,6 +527,9 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
           </p>
         </div>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <button className="btn btn-secondary btn-sm" onClick={() => window.print()}>
+            🖨️ Print Worksheet
+          </button>
           <button className="btn btn-light btn-sm" onClick={handleSaveAndClose} disabled={saving}>
             <Save size={16} /> Save & Exit
           </button>
@@ -531,7 +566,7 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
                   className="math-input"
                   value={wp.userAnswer || ''}
                   onChange={(e) => handleInputChange(wp.id, 'userAnswer', e.target.value)}
-                  onBlur={() => handleInputBlur(wp.id)}
+                  onBlur={(e) => handleInputBlur(wp.id, e)}
                   disabled={wp.locked}
                   maxLength={6}
                   placeholder="?"
@@ -569,7 +604,7 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
 
                 {isFraction ? (
                   /* Playful Fraction visual equation */
-                  <div className="math-equation" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <div className="math-equation" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                       <span>{problem.num1}</span>
                       <span style={{ borderTop: '2px solid var(--text-dark)', padding: '2px 6px', width: '100%', textAlign: 'center' }}>{problem.den1}</span>
@@ -580,18 +615,6 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
                       <span style={{ borderTop: '2px solid var(--text-dark)', padding: '2px 6px', width: '100%', textAlign: 'center' }}>{problem.den2}</span>
                     </div>
                     <span>=</span>
-                  </div>
-                ) : (
-                  /* Standard Arithmetic equation */
-                  <div className="math-equation">
-                    {problem.num1} {problem.type === '/' || problem.type === 'division' ? '÷' : problem.type === '*' || problem.type === 'multiplication' ? '×' : problem.type === 'subtraction' ? '−' : '+'} {problem.num2}
-                  </div>
-                )}
-
-                <div className="math-inputs">
-                  <div className="math-input-wrapper">
-                    {isDiv && <span className="math-input-label">Quotient</span>}
-                    {isFraction && <span className="math-input-label" style={{ fontSize: '0.65rem' }}>e.g. 5/7</span>}
                     <input
                       type="text"
                       className="math-input"
@@ -602,15 +625,34 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
                       maxLength={8}
                       placeholder="?"
                       autoComplete="off"
-                      style={{ width: isFraction ? '110px' : '80px' }}
+                      style={{ width: '90px', margin: 0, textAlign: 'center' }}
                     />
                   </div>
-
-                  {isDiv && (
-                    <>
-                      <span className="remainder-symbol">R</span>
-                      <div className="math-input-wrapper">
-                        <span className="math-input-label">Remainder</span>
+                ) : isDiv && problem.format !== 'missing_op1' && problem.format !== 'missing_op2' && problem.remainder !== 0 ? (
+                  /* Standard Division with Remainder (two input boxes) */
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                    <div className="math-equation">
+                      {problem.num1} ÷ {problem.num2} =
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Quotient</span>
+                        <input
+                          type="text"
+                          className="math-input"
+                          value={problem.userAnswer || ''}
+                          onChange={(e) => handleInputChange(problem.id, 'userAnswer', e.target.value)}
+                          onBlur={(e) => handleInputBlur(problem.id, e)}
+                          disabled={problem.locked}
+                          maxLength={5}
+                          placeholder="?"
+                          autoComplete="off"
+                          style={{ width: '70px', textAlign: 'center' }}
+                        />
+                      </div>
+                      <span style={{ fontWeight: 'bold', fontSize: '1.2rem', marginTop: '0.75rem' }}>R</span>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Remainder</span>
                         <input
                           type="text"
                           className="math-input"
@@ -621,11 +663,74 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
                           maxLength={3}
                           placeholder="0"
                           autoComplete="off"
+                          style={{ width: '55px', textAlign: 'center' }}
                         />
                       </div>
-                    </>
-                  )}
-                </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Interactive fill-in-the-blank style equations */
+                  <div className="math-equation" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                    {problem.format === 'missing_op1' ? (
+                      <>
+                        <input
+                          type="text"
+                          className="math-input"
+                          value={problem.userAnswer || ''}
+                          onChange={(e) => handleInputChange(problem.id, 'userAnswer', e.target.value)}
+                          onBlur={(e) => handleInputBlur(problem.id, e)}
+                          disabled={problem.locked}
+                          maxLength={5}
+                          placeholder="?"
+                          autoComplete="off"
+                          style={{ width: '65px', margin: 0, textAlign: 'center' }}
+                        />
+                        <span>{getOpSymbol(problem.type)}</span>
+                        <span>{problem.num2}</span>
+                        <span>=</span>
+                        <span>{problem.answer}</span>
+                      </>
+                    ) : problem.format === 'missing_op2' ? (
+                      <>
+                        <span>{problem.num1}</span>
+                        <span>{getOpSymbol(problem.type)}</span>
+                        <input
+                          type="text"
+                          className="math-input"
+                          value={problem.userAnswer || ''}
+                          onChange={(e) => handleInputChange(problem.id, 'userAnswer', e.target.value)}
+                          onBlur={(e) => handleInputBlur(problem.id, e)}
+                          disabled={problem.locked}
+                          maxLength={5}
+                          placeholder="?"
+                          autoComplete="off"
+                          style={{ width: '65px', margin: 0, textAlign: 'center' }}
+                        />
+                        <span>=</span>
+                        <span>{problem.answer}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>{problem.num1}</span>
+                        <span>{getOpSymbol(problem.type)}</span>
+                        <span>{problem.num2}</span>
+                        <span>=</span>
+                        <input
+                          type="text"
+                          className="math-input"
+                          value={problem.userAnswer || ''}
+                          onChange={(e) => handleInputChange(problem.id, 'userAnswer', e.target.value)}
+                          onBlur={(e) => handleInputBlur(problem.id, e)}
+                          disabled={problem.locked}
+                          maxLength={5}
+                          placeholder="?"
+                          autoComplete="off"
+                          style={{ width: '65px', margin: 0, textAlign: 'center' }}
+                        />
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}

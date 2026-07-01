@@ -71,7 +71,7 @@ function lcm(a, b) {
 
 // 2. Math Quiz Generator API
 app.get('/api/quizzes/math', (req, res) => {
-  const count = parseInt(req.query.count) || 10;
+  const count = parseInt(req.query.count) || 30; // default to 30
   const type = req.query.type || 'mix'; // 'addition', 'subtraction', 'multiplication', 'division', 'fractions', 'mix'
   const problems = [];
 
@@ -83,33 +83,39 @@ app.get('/api/quizzes/math', (req, res) => {
     }
 
     let problem = { id: i + 1, type: currentOp };
+    let format = 'standard'; // default format
 
     if (currentOp === 'addition') {
-      const num1 = Math.floor(Math.random() * 90) + 10; // 10 to 99
-      const num2 = Math.floor(Math.random() * 90) + 10; // 10 to 99
+      const num1 = Math.floor(Math.random() * 90) + 10;
+      const num2 = Math.floor(Math.random() * 90) + 10;
       problem.num1 = num1;
       problem.num2 = num2;
       problem.answer = num1 + num2;
+      
+      format = ['standard', 'missing_op1', 'missing_op2'][Math.floor(Math.random() * 3)];
     } else if (currentOp === 'subtraction') {
-      const num1 = Math.floor(Math.random() * 90) + 10; // 10 to 99
-      const num2 = Math.floor(Math.random() * (num1 - 9)) + 10; // 10 to num1
+      const num1 = Math.floor(Math.random() * 90) + 10;
+      const num2 = Math.floor(Math.random() * (num1 - 9)) + 10;
       problem.num1 = num1;
       problem.num2 = num2;
       problem.answer = num1 - num2;
+      
+      format = ['standard', 'missing_op1', 'missing_op2'][Math.floor(Math.random() * 3)];
     } else if (currentOp === 'multiplication') {
       if (Math.random() < 0.5) {
-        const num1 = Math.floor(Math.random() * 90) + 10; // 10 to 99
-        const num2 = Math.floor(Math.random() * 8) + 2;   // 2 to 9
+        const num1 = Math.floor(Math.random() * 90) + 10;
+        const num2 = Math.floor(Math.random() * 8) + 2;
         problem.num1 = num1;
         problem.num2 = num2;
         problem.answer = num1 * num2;
       } else {
-        const num1 = Math.floor(Math.random() * 40) + 10; // 10 to 49
-        const num2 = Math.floor(Math.random() * 20) + 10; // 10 to 29
+        const num1 = Math.floor(Math.random() * 40) + 10;
+        const num2 = Math.floor(Math.random() * 20) + 10;
         problem.num1 = num1;
         problem.num2 = num2;
         problem.answer = num1 * num2;
       }
+      format = ['standard', 'missing_op1', 'missing_op2'][Math.floor(Math.random() * 3)];
     } else if (currentOp === 'division') {
       const divisor = Math.floor(Math.random() * 11) + 2; // 2 to 12
       const quotient = Math.floor(Math.random() * 21) + 5; // 5 to 25
@@ -118,8 +124,13 @@ app.get('/api/quizzes/math', (req, res) => {
       
       problem.num1 = dividend;
       problem.num2 = divisor;
-      problem.answer = quotient; // quotient
-      problem.remainder = remainder; // remainder
+      problem.answer = quotient;
+      problem.remainder = remainder;
+      
+      // If remainder is 0, we can support missing operands format
+      if (remainder === 0) {
+        format = ['standard', 'missing_op1', 'missing_op2'][Math.floor(Math.random() * 3)];
+      }
     } else if (currentOp === 'fractions') {
       let D1, D2;
       if (Math.random() < 0.5) {
@@ -169,6 +180,16 @@ app.get('/api/quizzes/math', (req, res) => {
       problem.answer = `${N_ans}/${D_ans}`;
       problem.decimalAnswer = N_ans / D_ans;
     }
+
+    problem.format = format;
+    if (format === 'standard') {
+      problem.expectedAnswer = problem.answer;
+    } else if (format === 'missing_op1') {
+      problem.expectedAnswer = problem.num1;
+    } else if (format === 'missing_op2') {
+      problem.expectedAnswer = problem.num2;
+    }
+
     problems.push(problem);
   }
 
