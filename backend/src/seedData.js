@@ -326,8 +326,9 @@ export async function seedQuestions(db) {
 
   // Seed math word problems if not exists
   const wordProblemsCount = await db.get("SELECT COUNT(*) as count FROM math_word_problems");
-  if (wordProblemsCount.count === 0) {
-    console.log("Seeding math word problems...");
+  if (wordProblemsCount.count < 15) {
+    console.log("Re-seeding math word problems to include fractions...");
+    await db.run("DELETE FROM math_word_problems");
     const stmt = await db.prepare("INSERT INTO math_word_problems (question, answer, explanation) VALUES (?, ?, ?)");
     for (const wp of wordProblems) {
       await stmt.run(wp.question, wp.answer, wp.explanation);
@@ -387,5 +388,30 @@ export const wordProblems = [
     question: "A box of pencils costs $3. If a teacher buys 25 boxes, how much money does she spend in total?",
     answer: "75",
     explanation: "Multiply 25 boxes by $3 per box: 25 × 3 = $75 spent."
+  },
+  {
+    question: "Leo has a whole pizza. He eats 1/4 of it in the afternoon and 2/4 of it in the evening. What fraction of the pizza has Leo eaten in total?",
+    answer: "3/4",
+    explanation: "Add the fractions Leo ate: 1/4 + 2/4 = 3/4 of the pizza."
+  },
+  {
+    question: "Sarah has 4/5 of a cup of flour. She uses 1/5 of a cup for baking cookies. What fraction of a cup of flour is left?",
+    answer: "3/5",
+    explanation: "Subtract the flour used: 4/5 - 1/5 = 3/5 cup."
+  },
+  {
+    question: "A bucket contains 7/10 liters of water. If 3/10 liters of water leaks out, what fraction of a liter is left in the bucket?",
+    answer: "4/10",
+    explanation: "Subtract the water that leaked: 7/10 - 3/10 = 4/10 liter."
+  },
+  {
+    question: "Jake ran 2/6 of a mile on Monday and 3/6 of a mile on Tuesday. How far did he run in total?",
+    answer: "5/6",
+    explanation: "Add the distances run: 2/6 + 3/6 = 5/6 of a mile."
+  },
+  {
+    question: "Mia spent 3/8 of her allowance on a book and 2/8 on a snack. What fraction of her allowance did she spend in total?",
+    answer: "5/8",
+    explanation: "Add the fractions spent: 3/8 + 2/8 = 5/8 of her allowance."
   }
 ];

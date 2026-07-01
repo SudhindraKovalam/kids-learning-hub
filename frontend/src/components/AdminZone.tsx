@@ -18,7 +18,7 @@ export const AdminZone: React.FC<AdminZoneProps> = ({ onExit }) => {
   const [assignSubject, setAssignSubject] = useState<'math' | 'math_word' | 'science' | 'literacy'>('math');
   const [mathOperation, setMathOperation] = useState<string>('mix');
   const [mathCount, setMathCount] = useState<number>(30);
-  const [mathWordFormat, setMathWordFormat] = useState<'choices' | 'work_area'>('work_area');
+  const [mathWordFormat, setMathWordFormat] = useState<'choices' | 'work_area' | 'mix'>('mix');
   const [loading, setLoading] = useState<boolean>(true);
   const [assigning, setAssigning] = useState<boolean>(false);
 
@@ -218,8 +218,9 @@ export const AdminZone: React.FC<AdminZoneProps> = ({ onExit }) => {
                         value={mathWordFormat}
                         onChange={(e) => setMathWordFormat(e.target.value as any)}
                       >
-                        <option value="work_area">📝 Lined Work Area Workspace</option>
-                        <option value="choices">🔘 Multiple Choice options</option>
+                        <option value="mix">🌀 Mixed Format (Workspace & Choices)</option>
+                        <option value="work_area">📝 Lined Workspace Only</option>
+                        <option value="choices">🔘 Multiple Choice Options Only</option>
                       </select>
                     </div>
                   )}
