@@ -8,7 +8,7 @@ interface MathWorkbookProps {
   resume: boolean;
   subject: 'math' | 'math_word';
   assignmentId?: number;
-  config?: { count?: number; type?: string };
+  config?: { count?: number; type?: string; format?: 'choices' | 'work_area' };
   onBack: () => void;
 }
 
@@ -17,6 +17,11 @@ interface WordProblemState {
   question: string;
   answer: string;
   explanation: string;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  option_d: string;
+  correct_option: string;
   userAnswer?: string;
   isCorrect?: boolean;
   locked?: boolean;
@@ -40,6 +45,8 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
   const [score, setScore] = useState<number>(0);
   const [timeSpent, setTimeSpent] = useState<number>(0);
   const [saving, setSaving] = useState<boolean>(false);
+
+  const isChoices = config?.format === 'choices';
 
   // Load existing session (either assignment state or free play session)
   useEffect(() => {
@@ -173,6 +180,37 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
     }
   };
 
+  const handleOptionSelect = (id: number, optionLetter: string) => {
+    const targetWp = wordProblems.find(wp => wp.id === id);
+    if (targetWp?.locked) return;
+
+    let updatedWps: WordProblemState[] = [];
+    setWordProblems(prev => {
+      updatedWps = prev.map(wp => {
+        if (wp.id === id) {
+          const correct = optionLetter === wp.correct_option;
+          const isLocked = assignmentId ? true : false;
+          return { ...wp, userAnswer: optionLetter, isCorrect: correct, locked: isLocked };
+        }
+        return wp;
+      });
+
+      const stateObj = {
+        subject,
+        startTime,
+        mathProblems: updatedWps
+      };
+
+      if (assignmentId) {
+        api.saveAssignmentState(assignmentId, stateObj).catch(err => console.error(err));
+      } else {
+        api.saveActiveSession(profile.id, subject, stateObj).catch(err => console.error(err));
+      }
+
+      return updatedWps;
+    });
+  };
+
   const validateFraction = (userInput: string, decimalAnswer: number): boolean => {
     if (!userInput.trim()) return false;
     const parts = userInput.split('/');
@@ -201,6 +239,8 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
     let stateObj: any;
 
     if (subject === 'math_word') {
+      if (isChoices) return; // multiple choice is verified onClick, not onBlur
+      
       let updatedWps: WordProblemState[] = [];
       setWordProblems(prev => {
         updatedWps = prev.map(p => {
@@ -312,7 +352,9 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
         if (p.userAnswer === undefined || p.userAnswer === '') {
           return { ...p, isCorrect: false, locked: true };
         }
-        const correct = p.userAnswer.trim() === p.answer.trim();
+        const correct = isChoices
+          ? p.userAnswer === p.correct_option
+          : p.userAnswer.trim() === p.answer.trim();
         return { ...p, isCorrect: correct, locked: true };
       });
       finalScore = validated.filter(p => p.isCorrect).length;
@@ -376,6 +418,49 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
     } finally {
       setSaving(false);
     }
+  };
+
+  // Landscape orientation injector for printing math equations worksheets
+  const handlePrint = () => {
+    const style = document.createElement('style');
+    // If it's standard Math, use landscape. If it's Math Word problems, use portrait.
+    if (subject === 'math') {
+      style.innerHTML = `
+        @page { size: letter landscape; margin: 0.3in !important; }
+        .math-problems-list {
+          grid-template-columns: repeat(3, 1fr) !important;
+          gap: 0.25cm !important;
+        }
+        .math-card {
+          padding: 0.25rem 0.5rem !important;
+          height: 62px !important;
+          margin-bottom: 0.1cm !important;
+          border: 1px solid #475569 !important;
+          justify-content: center !important;
+        }
+        .math-equation {
+          font-size: 1.15rem !important;
+          margin-bottom: 0 !important;
+        }
+        .math-input {
+          width: 50px !important;
+          height: 22px !important;
+          border: 1px solid #475569 !important;
+        }
+      `;
+    } else {
+      style.innerHTML = `@page { size: letter portrait; margin: 0.5in !important; }`;
+    }
+    style.id = 'dynamic-print-style';
+    document.head.appendChild(style);
+
+    window.print();
+
+    // Clean up
+    setTimeout(() => {
+      const el = document.getElementById('dynamic-print-style');
+      if (el) el.remove();
+    }, 1500);
   };
 
   const formatTime = (secs: number) => {
@@ -513,7 +598,7 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
           {subject === 'math_word' ? '📝 Math Word Problems Quest' : '🧮 Math Practice Worksheet'}
         </h1>
         <p style={{ textAlign: 'center', color: '#475569', fontSize: '0.95rem' }}>
-          {subject === 'math' ? `Workbook Type: ${mathType.toUpperCase()} • Problems Count: ${problems.length}` : `Problems Count: ${wordProblems.length}`}
+          {subject === 'math' ? `Workbook Type: ${mathType.toUpperCase()} • Problems Count: ${problems.length}` : `Problems Count: ${wordProblems.length} • Format: ${isChoices ? 'Multiple Choice' : 'Lined Workspace'}`}
         </p>
       </div>
 
@@ -527,7 +612,7 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
           </p>
         </div>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <button className="btn btn-secondary btn-sm" onClick={() => window.print()}>
+          <button className="btn btn-secondary btn-sm" onClick={handlePrint}>
             🖨️ Print Worksheet
           </button>
           <button className="btn btn-light btn-sm" onClick={handleSaveAndClose} disabled={saving}>
@@ -549,7 +634,7 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
                   ? 'incorrect'
                   : ''
               }`}
-              style={{ alignItems: 'flex-start', width: '100%', padding: '2rem' }}
+              style={{ alignItems: 'flex-start', width: '100%', padding: '2rem', pageBreakInside: 'avoid' }}
             >
               <div className="math-card-feedback">
                 {wp.isCorrect === true && <CheckCircle2 size={20} />}
@@ -560,20 +645,103 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
                 <strong>Problem {idx + 1}:</strong> {wp.question}
               </h4>
 
-              <div className="math-inputs">
-                <input
-                  type="text"
-                  className="math-input"
-                  value={wp.userAnswer || ''}
-                  onChange={(e) => handleInputChange(wp.id, 'userAnswer', e.target.value)}
-                  onBlur={(e) => handleInputBlur(wp.id, e)}
-                  disabled={wp.locked}
-                  maxLength={6}
-                  placeholder="?"
-                  autoComplete="off"
-                  style={{ width: '120px', textAlign: 'left', padding: '0 1rem' }}
-                />
-              </div>
+              {/* Lined Workspace Workspace */}
+              {!isChoices && (
+                <>
+                  {/* Digital view text input */}
+                  <div className="math-inputs screen-only">
+                    <input
+                      type="text"
+                      className="math-input"
+                      value={wp.userAnswer || ''}
+                      onChange={(e) => handleInputChange(wp.id, 'userAnswer', e.target.value)}
+                      onBlur={(e) => handleInputBlur(wp.id, e)}
+                      disabled={wp.locked}
+                      maxLength={6}
+                      placeholder="?"
+                      autoComplete="off"
+                      style={{ width: '120px', textAlign: 'left', padding: '0 1rem' }}
+                    />
+                  </div>
+
+                  {/* Print Workspace Workspace Box */}
+                  <div 
+                    className="print-only" 
+                    style={{ 
+                      display: 'none', 
+                      border: '1px dashed #64748b', 
+                      height: '110px', 
+                      marginTop: '0.75rem', 
+                      borderRadius: '4px', 
+                      width: '100%',
+                      position: 'relative'
+                    }}
+                  >
+                    <span style={{ position: 'absolute', bottom: '10px', right: '15px', color: '#64748b', fontSize: '0.9rem', fontFamily: 'monospace' }}>
+                      Answer: __________________
+                    </span>
+                  </div>
+                </>
+              )}
+
+              {/* Multiple Choice Options */}
+              {isChoices && (
+                <div>
+                  <div className="quiz-options-list" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', width: '100%', marginTop: '0.5rem' }}>
+                    {['A', 'B', 'C', 'D'].map((letter) => {
+                      const isSelected = wp.userAnswer === letter;
+                      const getVal = () => {
+                        if (letter === 'A') return wp.option_a;
+                        if (letter === 'B') return wp.option_b;
+                        if (letter === 'C') return wp.option_c;
+                        return wp.option_d;
+                      };
+
+                      let optionClass = '';
+                      if (isSelected) optionClass = 'selected';
+                      if (wp.locked) {
+                        optionClass += ' disabled';
+                        if (letter === wp.correct_option) {
+                          optionClass = 'correct-highlight';
+                        } else if (isSelected && letter !== wp.correct_option) {
+                          optionClass = 'incorrect-highlight';
+                        }
+                      }
+
+                      return (
+                        <div
+                          key={letter}
+                          className={`quiz-option-card ${optionClass} screen-only`}
+                          onClick={() => handleOptionSelect(wp.id, letter)}
+                          style={{ margin: 0, padding: '0.65rem 1rem' }}
+                        >
+                          <div className="quiz-option-letter" style={{ width: '28px', height: '28px', fontSize: '0.85rem' }}>{letter}</div>
+                          <div style={{ fontSize: '0.95rem' }}>{getVal()}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Print choices grid */}
+                  <div 
+                    className="print-only" 
+                    style={{ 
+                      display: 'none', 
+                      gridTemplateColumns: '1fr 1fr', 
+                      gap: '0.5rem', 
+                      marginTop: '0.75rem', 
+                      fontFamily: 'monospace',
+                      fontSize: '1rem',
+                      marginLeft: '1.5rem'
+                    }}
+                  >
+                    <div>[ ] A. {wp.option_a}</div>
+                    <div>[ ] B. {wp.option_b}</div>
+                    <div>[ ] C. {wp.option_c}</div>
+                    <div>[ ] D. {wp.option_d}</div>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -636,7 +804,7 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Quotient</span>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }} className="screen-only">Quotient</span>
                         <input
                           type="text"
                           className="math-input"
@@ -652,7 +820,7 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
                       </div>
                       <span style={{ fontWeight: 'bold', fontSize: '1.2rem', marginTop: '0.75rem' }}>R</span>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Remainder</span>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }} className="screen-only">Remainder</span>
                         <input
                           type="text"
                           className="math-input"
@@ -737,7 +905,7 @@ export const MathWorkbook: React.FC<MathWorkbookProps> = ({
         </div>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'center' }} className="screen-only">
         <button
           className="btn btn-primary"
           onClick={handleFinishWorkbook}

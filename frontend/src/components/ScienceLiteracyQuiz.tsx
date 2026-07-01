@@ -104,12 +104,11 @@ export const ScienceLiteracyQuiz: React.FC<ScienceLiteracyQuizProps> = ({
   }, [currentIndex, questions, answers]);
 
   const handleOptionSelect = (option: string) => {
-    if (isAnswerChecked) return; // Locked once evaluated
+    if (isAnswerChecked) return;
     setSelectedOption(option);
   };
 
   const handleNextClick = async () => {
-    // Stage 1: Evaluate selection on "Check Answer" click (First button state)
     if (!isAnswerChecked) {
       if (!selectedOption) {
         alert('Please select an answer first!');
@@ -142,7 +141,6 @@ export const ScienceLiteracyQuiz: React.FC<ScienceLiteracyQuizProps> = ({
       return;
     }
 
-    // Stage 2: Move to the next question or complete the quiz
     const nextIndex = currentIndex + 1;
     
     if (nextIndex < questions.length) {
@@ -307,102 +305,140 @@ export const ScienceLiteracyQuiz: React.FC<ScienceLiteracyQuizProps> = ({
   };
 
   return (
-    <div className="quiz-container">
-      <div className="quiz-header">
-        <div>
-          <h2 style={{ textTransform: 'capitalize', color: 'var(--primary)' }}>
-            {subject === 'science' ? 'Science Lab 🔬' : 'Literacy Hub 📚'}
-          </h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-            {assignmentId ? 'Assigned Quiz (One-Time Answer entry!)' : 'Practice Quiz'} • Question {currentIndex + 1} of {totalQuestions}
-          </p>
+    <div style={{ width: '100%' }}>
+      {/* Print-only layout showing ALL questions */}
+      <div className="print-only" style={{ display: 'none', marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid black', paddingBottom: '0.75rem', marginBottom: '1.5rem', fontFamily: 'monospace', fontSize: '1.2rem' }}>
+          <span>Name: ____________________________________</span>
+          <span>Date: ________________________</span>
         </div>
+        <h1 style={{ textAlign: 'center', fontSize: '2.2rem', color: 'black', marginBottom: '1.8rem', fontFamily: 'var(--font-title)' }}>
+          {subject === 'science' ? '🔬 Science Lab Practice Quiz' : '📚 Literacy Hub Practice Quiz'}
+        </h1>
         
-        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
-          <div className="progress-bar-container">
-            <div className="progress-bar-fill" style={{ width: `${progressPercent}%` }} />
-          </div>
-          <button className="btn btn-light btn-sm" onClick={handleSaveAndClose} disabled={saving}>
-            <Save size={16} /> Save & Exit
-          </button>
-        </div>
-      </div>
-
-      {currentQuestion.passage && (
-        <div className="quiz-passage-box">
-          <h4 style={{ marginBottom: '0.5rem', fontSize: '1rem', color: 'var(--primary)' }}>📖 Reading Passage</h4>
-          <p>{currentQuestion.passage}</p>
-        </div>
-      )}
-
-      <h3 className="quiz-question-text">{currentQuestion.question}</h3>
-
-      <div className="quiz-options-list">
-        {['A', 'B', 'C', 'D'].map((letter) => {
-          const isSelected = selectedOption === letter;
-          const isCorrectAns = letter === currentQuestion.correct_option;
-          
-          let cardClass = '';
-          if (isSelected) cardClass = 'selected';
-          
-          if (isAnswerChecked) {
-            cardClass += ' disabled';
-            if (isCorrectAns) {
-              cardClass = 'correct-highlight';
-            } else if (isSelected && !isCorrectAns) {
-              cardClass = 'incorrect-highlight';
-            }
-          }
-
-          return (
-            <div
-              key={letter}
-              className={`quiz-option-card ${cardClass}`}
-              onClick={() => handleOptionSelect(letter)}
-            >
-              <div className="quiz-option-letter">{letter}</div>
-              <div>{getOptionValue(letter)}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.8rem' }}>
+          {questions.map((q, idx) => (
+            <div key={q.id} style={{ pageBreakInside: 'avoid', borderBottom: '1px dashed #cbd5e1', paddingBottom: '1.2rem' }}>
+              <h3 style={{ fontSize: '1.15rem', marginBottom: '0.75rem', color: 'black', lineHeight: '1.5' }}>
+                <strong>Question {idx + 1}:</strong> {q.question}
+              </h3>
+              {q.passage && (
+                <p style={{ fontStyle: 'italic', background: '#f8fafc', padding: '0.8rem', borderRadius: '6px', border: '1px solid #e2e8f0', marginBottom: '0.75rem', lineHeight: '1.6', fontSize: '0.95rem' }}>
+                  {q.passage}
+                </p>
+              )}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem', marginLeft: '1.5rem', fontFamily: 'sans-serif' }}>
+                <div>( ) A. {q.option_a}</div>
+                <div>( ) B. {q.option_b}</div>
+                <div>( ) C. {q.option_c}</div>
+                <div>( ) D. {q.option_d}</div>
+              </div>
             </div>
-          );
-        })}
+          ))}
+        </div>
       </div>
 
-      {isAnswerChecked && (
-        <div className={`evaluation-box ${isCurrentCorrect ? 'correct' : 'incorrect'}`}>
-          <div className="evaluation-icon">
-            {isCurrentCorrect ? <CheckCircle2 size={28} /> : <XCircle size={28} />}
-          </div>
-          <div className="evaluation-text">
-            <h4>{isCurrentCorrect ? 'Superb! Correct Answer! 🎉' : 'Oops, Not Quite! 😢'}</h4>
-            <p>
-              {isCurrentCorrect 
-                ? `You chose option ${selectedOption}: "${getOptionValue(selectedOption!)}", which is correct!`
-                : `You chose option ${selectedOption}: "${getOptionValue(selectedOption!)}". The correct answer was option ${currentQuestion.correct_option}: "${getOptionValue(currentQuestion.correct_option)}".`
-              }
+      {/* Screen-only interactive layout */}
+      <div className="quiz-container screen-only">
+        <div className="quiz-header">
+          <div>
+            <h2 style={{ textTransform: 'capitalize', color: 'var(--primary)' }}>
+              {subject === 'science' ? 'Science Lab 🔬' : 'Literacy Hub 📚'}
+            </h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+              {assignmentId ? 'Assigned Quiz (One-Time Answer entry!)' : 'Practice Quiz'} • Question {currentIndex + 1} of {totalQuestions}
             </p>
           </div>
+          
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <div className="progress-bar-container" style={{ marginRight: '0.5rem' }}>
+              <div className="progress-bar-fill" style={{ width: `${progressPercent}%` }} />
+            </div>
+            <button className="btn btn-secondary btn-sm" onClick={() => window.print()}>
+              🖨️ Print Quiz
+            </button>
+            <button className="btn btn-light btn-sm" onClick={handleSaveAndClose} disabled={saving}>
+              <Save size={16} /> Save & Exit
+            </button>
+          </div>
         </div>
-      )}
 
-      <div style={{ display: 'flex', justifyContent: 'center' }}>
-        <button
-          className="btn btn-primary"
-          onClick={handleNextClick}
-          disabled={!selectedOption || saving}
-          style={{ padding: '1rem 4rem' }}
-        >
-          {!isAnswerChecked ? (
-            <>
-              Check Answer <ChevronRight size={20} />
-            </>
-          ) : currentIndex === totalQuestions - 1 ? (
-            'Finish Quiz 🏁'
-          ) : (
-            <>
-              Continue <ChevronRight size={20} />
-            </>
-          )}
-        </button>
+        {currentQuestion.passage && (
+          <div className="quiz-passage-box">
+            <h4 style={{ marginBottom: '0.5rem', fontSize: '1rem', color: 'var(--primary)' }}>📖 Reading Passage</h4>
+            <p>{currentQuestion.passage}</p>
+          </div>
+        )}
+
+        <h3 className="quiz-question-text">{currentQuestion.question}</h3>
+
+        <div className="quiz-options-list">
+          {['A', 'B', 'C', 'D'].map((letter) => {
+            const isSelected = selectedOption === letter;
+            const isCorrectAns = letter === currentQuestion.correct_option;
+            
+            let cardClass = '';
+            if (isSelected) cardClass = 'selected';
+            
+            if (isAnswerChecked) {
+              cardClass += ' disabled';
+              if (isCorrectAns) {
+                cardClass = 'correct-highlight';
+              } else if (isSelected && !isCorrectAns) {
+                cardClass = 'incorrect-highlight';
+              }
+            }
+
+            return (
+              <div
+                key={letter}
+                className={`quiz-option-card ${cardClass}`}
+                onClick={() => handleOptionSelect(letter)}
+              >
+                <div className="quiz-option-letter">{letter}</div>
+                <div>{getOptionValue(letter)}</div>
+              </div>
+            );
+          })}
+        </div>
+
+        {isAnswerChecked && (
+          <div className={`evaluation-box ${isCurrentCorrect ? 'correct' : 'incorrect'}`}>
+            <div className="evaluation-icon">
+              {isCurrentCorrect ? <CheckCircle2 size={28} /> : <XCircle size={28} />}
+            </div>
+            <div className="evaluation-text">
+              <h4>{isCurrentCorrect ? 'Superb! Correct Answer! 🎉' : 'Oops, Not Quite! 😢'}</h4>
+              <p>
+                {isCurrentCorrect 
+                  ? `You chose option ${selectedOption}: "${getOptionValue(selectedOption!)}", which is correct!`
+                  : `You chose option ${selectedOption}: "${getOptionValue(selectedOption!)}". The correct answer was option ${currentQuestion.correct_option}: "${getOptionValue(currentQuestion.correct_option)}".`
+                }
+              </p>
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <button
+            className="btn btn-primary"
+            onClick={handleNextClick}
+            disabled={!selectedOption || saving}
+            style={{ padding: '1rem 4rem' }}
+          >
+            {!isAnswerChecked ? (
+              <>
+                Check Answer <ChevronRight size={20} />
+              </>
+            ) : currentIndex === totalQuestions - 1 ? (
+              'Finish Quiz 🏁'
+            ) : (
+              <>
+                Continue <ChevronRight size={20} />
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

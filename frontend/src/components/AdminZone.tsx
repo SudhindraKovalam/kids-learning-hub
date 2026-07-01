@@ -18,6 +18,7 @@ export const AdminZone: React.FC<AdminZoneProps> = ({ onExit }) => {
   const [assignSubject, setAssignSubject] = useState<'math' | 'math_word' | 'science' | 'literacy'>('math');
   const [mathOperation, setMathOperation] = useState<string>('mix');
   const [mathCount, setMathCount] = useState<number>(30);
+  const [mathWordFormat, setMathWordFormat] = useState<'choices' | 'work_area'>('work_area');
   const [loading, setLoading] = useState<boolean>(true);
   const [assigning, setAssigning] = useState<boolean>(false);
 
@@ -73,7 +74,7 @@ export const AdminZone: React.FC<AdminZoneProps> = ({ onExit }) => {
       if (assignSubject === 'math') {
         config = { count: mathCount, type: mathOperation };
       } else if (assignSubject === 'math_word') {
-        config = { count: mathCount };
+        config = { count: mathCount, format: mathWordFormat };
       }
 
       await api.assignWorkbook(selectedProfile.id, assignSubject, config);
@@ -205,6 +206,20 @@ export const AdminZone: React.FC<AdminZoneProps> = ({ onExit }) => {
                         <option value="multiplication">✖️ Multiplication Only</option>
                         <option value="division">➗ Division Only</option>
                         <option value="fractions">🍕 Fractions (Common & Uncommon)</option>
+                      </select>
+                    </div>
+                  )}
+                  {assignSubject === 'math_word' && (
+                    <div className="form-group">
+                      <label className="form-label" htmlFor="word-format">Word Problems Format</label>
+                      <select
+                        id="word-format"
+                        className="form-input"
+                        value={mathWordFormat}
+                        onChange={(e) => setMathWordFormat(e.target.value as any)}
+                      >
+                        <option value="work_area">📝 Lined Work Area Workspace</option>
+                        <option value="choices">🔘 Multiple Choice options</option>
                       </select>
                     </div>
                   )}

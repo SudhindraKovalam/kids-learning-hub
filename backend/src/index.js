@@ -521,7 +521,61 @@ app.get('/api/quizzes/word-problems', async (req, res) => {
       'SELECT * FROM math_word_problems ORDER BY RANDOM() LIMIT ?',
       count
     );
-    res.json(list);
+
+    const processed = list.map(item => {
+      const correctVal = parseInt(item.answer);
+      if (isNaN(correctVal)) {
+        return {
+          ...item,
+          option_a: item.answer,
+          option_b: 'None of the above',
+          option_c: 'Cannot be determined',
+          option_d: '0',
+          correct_option: 'A'
+        };
+      }
+
+      // Generate 3 unique positive distractor values
+      const offsets = [-10, 10, -5, 5, -20, 20, -100, 100, -2, 2, -1, 1];
+      const distractors = new Set();
+      let iterations = 0;
+      while (distractors.size < 3 && iterations < 50) {
+        iterations++;
+        const offset = offsets[Math.floor(Math.random() * offsets.length)];
+        const candidate = correctVal + offset;
+        if (candidate > 0 && candidate !== correctVal) {
+          distractors.add(candidate);
+        }
+      }
+
+      // Fallback in case of generation loop timeout
+      while (distractors.size < 3) {
+        distractors.add(correctVal + distractors.size + 1);
+      }
+
+      const choices = [correctVal, ...Array.from(distractors)];
+      // Shuffle choices
+      for (let i = choices.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const temp = choices[i];
+        choices[i] = choices[j];
+        choices[j] = temp;
+      }
+
+      const letters = ['A', 'B', 'C', 'D'];
+      const correctIdx = choices.indexOf(correctVal);
+
+      return {
+        ...item,
+        option_a: choices[0].toString(),
+        option_b: choices[1].toString(),
+        option_c: choices[2].toString(),
+        option_d: choices[3].toString(),
+        correct_option: letters[correctIdx]
+      };
+    });
+
+    res.json(processed);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
